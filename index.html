@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quotes Generator</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html-to-image/1.11.11/html-to-image.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        /* ================= GLOBAL & ANTI-MALING ================= */
+        :root {
+            --bg-body: #050505; --bg-panel: #121212; --accent-blue: #3b82f6;
+            --accent-green: #10b981; --border: #27272a; --text-main: #f4f4f5; --text-muted: #a1a1aa;
+            --bubble-bg: #ffffff; --bubble-color: #000000;
+        }
+
+        body {
+            margin: 0; padding: 20px; background-color: var(--bg-body);
+            background-image: radial-gradient(circle at 50% -20%, rgba(59, 130, 246, 0.1), transparent 50%);
+            color: var(--text-main); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            
+            /* Anti Highlight & Anti Blok Teks */
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none;
+            
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            min-height: 100vh; box-sizing: border-box; overflow-x: hidden;
+        }
+
+        /* ================= BLUE SCREEN (JAM MALAM) ================= */
+        #blue-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: #0033a0; color: #fff; display: none; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 999999;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; padding: 30px;
+        }
+        #blue-screen i { font-size: 80px; margin-bottom: 20px; color: #60a5fa; }
+        #blue-screen h1 { font-size: 28px; margin-bottom: 10px; }
+        #blue-screen p { font-size: 16px; opacity: 0.8; }
+
+        /* ================= MAIN CONTAINER ================= */
+        #app-content {
+            width: 100%; display: flex; flex-direction: column; align-items: center;
+        }
+        
+        .app-container {
+            width: 100%; max-width: 480px; background: var(--bg-panel);
+            border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 28px; padding: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.8); position: relative;
+        }
+
+        /* Navigasi Tabs dengan Icon */
+        .tabs-container {
+            display: flex; background: #000; border-radius: 14px; padding: 6px;
+            margin-bottom: 16px; border: 1px solid var(--border); gap: 4px;
+        }
+        .tab-btn {
+            flex: 1; padding: 12px 6px; background: transparent; border: none;
+            color: var(--text-muted); font-weight: 700; font-size: 13px;
+            border-radius: 10px; cursor: pointer; transition: all 0.3s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .tab-btn.active { background: #27272a; color: #fff; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+
+        /* Canvas */
+        .canvas-wrapper {
+            width: 100%; background: #e4e4e7; border-radius: 16px; overflow: hidden;
+            position: relative; margin-bottom: 24px; border: 1px solid var(--border);
+            transition: aspect-ratio 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        #render-area {
+            background: #f4f4f5; position: absolute; top: 0; left: 0;
+            transform-origin: top left; display: flex; align-items: center; overflow: hidden;
+        }
+        .mode-portrait #render-area { width: 1080px; height: 1920px; } .mode-portrait.canvas-wrapper { aspect-ratio: 9 / 16; }
+        .mode-landscape #render-area { width: 1920px; height: 1080px; } .mode-landscape.canvas-wrapper { aspect-ratio: 16 / 9; }
+        .mode-square #render-area { width: 1080px; height: 1080px; } .mode-square.canvas-wrapper { aspect-ratio: 1 / 1; }
+
+        /* Formating Font Custom */
+        .fmt-normal { font-weight: 700; }
+        .fmt-bold { font-weight: 900 !important; font-family: 'Arial Black', Impact, sans-serif !important; text-shadow: -2px 3px 4px rgba(0,0,0,0.5); letter-spacing: 1px; }
+        .fmt-italic { font-style: italic !important; display: inline-block; transform: skewX(-14deg); padding-right: 5px; font-weight: 800; }
+        .fmt-thin { font-weight: 300 !important; font-family: "Segoe UI Light", "Helvetica Neue", sans-serif !important; opacity: 0.85; letter-spacing: 0.5px; }
+
+        /* ================= 3D HARDCORE EFFECT (TEMBOK) ================= */
+        .quote-3d-wrapper {
+            perspective: 1200px; /* Perspektif dideketin biar 3D-nya curam & ekstrem */
+            width: 100%; height: 100%; display: flex;
+            align-items: center; justify-content: center; padding: 0 40px; box-sizing: border-box;
+        }
+        #quote-text-3d {
+            font-family: Arial, Helvetica, sans-serif; color: #111111; line-height: 1.35; 
+            width: 100%; text-align: center; white-space: pre-wrap; word-wrap: break-word;
+            transform-origin: center center;
+            
+            /* KEMIRINGAN TAJAM: 38 Derajat */
+            transform: rotateY(38deg) rotateX(4deg) rotateZ(-1deg); 
+            
+            /* SHADOW HITAM PEKAT: Lapis 3 biar bener-bener timbul */
+            text-shadow: -4px 6px 8px rgba(0, 0, 0, 0.7), 
+                         -10px 15px 25px rgba(0, 0, 0, 0.5),
+                         -2px 3px 2px rgba(0, 0, 0, 0.8);
+            display: none; opacity: 0;
+        }
+
+        .mode-portrait #quote-text-3d { max-width: 85%; }
+        .mode-square #quote-text-3d { max-width: 80%; }
+        .mode-landscape #quote-text-3d { max-width: 70%; }
+
+        /* ================= BUBBLE 3D (HARDCORE SHADOW) ================= */
+        .bubble-wrapper {
+            perspective: 1200px; /* Efek kamera dekat = 3D tajam */
+            width: 100%; height: 100%; display: none; align-items: center; justify-content: center; padding: 0 40px; box-sizing: border-box;
+        }
+        .chat-row {
+            display: flex; align-items: flex-start; gap: 30px; width: 100%; transform-origin: center center;
+            
+            /* KEMIRINGAN TAJAM: 38 Derajat */
+            transform: rotateY(38deg) rotateX(4deg) rotateZ(-1deg); opacity: 0;
+            
+            /* BAYANGAN MELAYANG HITAM PEKAT */
+            filter: drop-shadow(-25px 35px 25px rgba(0,0,0,0.65));
+        }
+        .profile-pic {
+            width: 130px; height: 130px; border-radius: 50%; flex-shrink: 0; object-fit: cover; border: 5px solid #fff; background: #dfe5e7;
+            /* Box Shadow PP super gelap */
+            box-shadow: -10px 15px 20px rgba(0,0,0,0.5);
+        }
+        .chat-bubble-container { position: relative; flex: 1; min-width: 0; display: flex; }
+        .chat-bubble {
+            background: var(--bubble-bg); color: var(--bubble-color); padding: 40px 50px; border-radius: 0 35px 35px 35px;
+            font-family: Arial, Helvetica, sans-serif; line-height: 1.4; text-align: center;
+            
+            /* Box Shadow Kotak Chat super tebal */
+            box-shadow: -20px 30px 40px rgba(0,0,0,0.55), inset 4px 4px 10px rgba(255,255,255,0.6);
+            width: 100%; white-space: pre-wrap; word-wrap: break-word;
+        }
+        .mode-portrait .chat-row { justify-content: center; max-width: 85%; } .mode-portrait .chat-bubble { max-width: 650px; }
+        .mode-square .chat-row { justify-content: center; max-width: 90%; } .mode-square .chat-bubble { max-width: 600px; } 
+        .mode-landscape .chat-row { justify-content: center; max-width: 80%; } .mode-landscape .chat-bubble { max-width: 1100px; }
+        
+        .chat-bubble::before {
+            content: ""; position: absolute; top: 0; left: -25px; width: 0; height: 0;
+            border-top: 0px solid transparent; border-right: 30px solid var(--bubble-bg); border-bottom: 30px solid transparent;
+        }
+
+        /* ================= ANIMASI GENERATE ================= */
+        @keyframes popIn3DHardcore {
+            0% { opacity: 0; transform: rotateY(50deg) rotateX(10deg) scale(0.7); filter: blur(8px) brightness(1.5); }
+            50% { filter: blur(0) brightness(1.2); }
+            100% { opacity: 1; transform: rotateY(38deg) rotateX(4deg) rotateZ(-1deg) scale(1); filter: blur(0) brightness(1); }
+        }
+        .animate-pop { animation: popIn3DHardcore 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards !important; }
+
+        /* ================= UI INPUT & TOMBOL ================= */
+        .control-group { margin-bottom: 20px; }
+        textarea {
+            width: 100%; background: #000; border: 1px solid var(--border); color: #fff;
+            padding: 16px; border-radius: 16px; font-family: inherit; font-size: 15px;
+            resize: none; height: 110px; outline: none; transition: 0.3s; box-sizing: border-box;
+            -webkit-user-select: text; user-select: text;
+        }
+        textarea:focus { border-color: var(--accent-blue); box-shadow: 0 0 15px rgba(59, 130, 246, 0.2); }
+
+        #bubble-controls {
+            display: none; background: #09090b; padding: 18px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px; gap: 12px; flex-direction: column;
+        }
+        .custom-upload-btn {
+            display: flex; justify-content: center; align-items: center; gap: 8px; background: #18181b; padding: 14px; border-radius: 12px;
+            border: 1px dashed #3f3f46; color: #fff; font-weight: 600; font-size: 14px; cursor: pointer; transition: 0.2s;
+        }
+        .custom-upload-btn:hover { background: #27272a; border-color: var(--accent-blue); }
+        .custom-upload-btn input[type="file"] { display: none; }
+        
+        .flex-row { display: flex; gap: 12px; align-items: center; }
+        .custom-color-wrapper {
+            flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px; background: #18181b; padding: 12px; border-radius: 12px;
+            border: 1px solid #3f3f46; position: relative; overflow: hidden; cursor: pointer; transition: 0.2s;
+        }
+        .custom-color-wrapper:hover { border-color: var(--accent-green); }
+        .color-indicator { width: 18px; height: 18px; border-radius: 50%; border: 2px solid #52525b; }
+        .custom-color-wrapper span { font-size: 13px; font-weight: 600; color: var(--text-main); }
+        .custom-color-wrapper input[type="color"] { position: absolute; opacity: 0; cursor: pointer; width: 100%; height: 100%; left: 0; top: 0;}
+
+        .btn-group { display: flex; gap: 12px; flex-direction: column; }
+        .btn { width: 100%; border: none; padding: 18px; border-radius: 16px; font-weight: 800; font-size: 16px; cursor: pointer; transition: 0.2s; font-family: inherit; display: flex; justify-content: center; align-items: center; gap: 10px; }
+        .btn:active { transform: scale(0.96); }
+        .btn-generate { background: var(--accent-blue); color: #fff; box-shadow: 0 4px 15px rgba(59, 130, 246, 0.3); }
+        .btn-download { background: var(--accent-green); color: #000; box-shadow: 0 4px 15px rgba(16, 185, 129, 0.2); }
+
+        #watermark-text { position: absolute; bottom: 60px; left: 60px; color: #9ca3af; font-family: Arial, Helvetica, sans-serif; font-weight: bold; font-size: 32px; z-index: 10; display: none; }
+
+        /* ================= MUSIC PLAYER PREMIUM ================= */
+        .music-player {
+            width: 100%; background: #09090b; border: 1px solid var(--border); border-radius: 20px;
+            padding: 16px 20px; display: flex; align-items: center; justify-content: space-between;
+            margin-top: 24px; box-sizing: border-box; box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+        }
+        .music-info { display: flex; align-items: center; gap: 12px; flex: 1; }
+        .play-btn {
+            width: 45px; height: 45px; border-radius: 50%; background: var(--accent-green);
+            color: #000; display: flex; justify-content: center; align-items: center;
+            font-size: 18px; cursor: pointer; border: none; transition: 0.3s;
+        }
+        .play-btn:hover { transform: scale(1.1); box-shadow: 0 0 15px rgba(16,185,129,0.5); }
+        
+        .music-details { display: flex; flex-direction: column; gap: 4px; }
+        .music-title { font-size: 14px; font-weight: 700; color: #fff; }
+        .music-time { font-size: 12px; color: var(--text-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+        
+        .upload-music-btn {
+            background: #18181b; color: var(--text-muted); border: 1px solid #3f3f46;
+            width: 40px; height: 40px; border-radius: 12px; display: flex; justify-content: center;
+            align-items: center; cursor: pointer; transition: 0.2s; position: relative;
+        }
+        .upload-music-btn:hover { color: #fff; border-color: #fff; }
+        .upload-music-btn input { position: absolute; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
+
+        /* Custom Toast */
+        #custom-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #ffffff; color: #000; padding: 14px 24px; border-radius: 50px; font-weight: bold; font-size: 14px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 9999; transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); opacity: 0; pointer-events: none; display: flex; gap: 8px; align-items: center;}
+        #custom-toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+        .ios-emoji { width: 1.1em; height: 1.1em; vertical-align: -0.2em; display: inline-block; }
+        .footer-credits { text-align: center; margin-top: 24px; color: var(--text-muted); font-size: 13px; font-weight: 600; padding-bottom: 20px; }
+    </style>
+</head>
+<body oncontextmenu="return false;">
+
+    <div id="blue-screen">
+        <i class="fa-solid fa-face-frown"></i>
+        <h1>Sistem Terkunci</h1>
+        <p>Maaf Website di tutup sementara datanglah di jam 04.00 :(</p>
+    </div>
+
+    <div id="custom-toast"><i class="fa-solid fa-circle-check" style="color: #10b981;"></i> <span>Berhasil!</span></div>
+
+    <audio id="bg-audio" src="lagu.mp3" loop></audio>
+
+    <div id="app-content">
+        <div class="app-container">
+            
+            <div class="tabs-container">
+                <button class="tab-btn active" id="btn-style-3d"><i class="fa-solid fa-cubes"></i> 3D Tembok</button>
+                <button class="tab-btn" id="btn-style-bubble"><i class="fa-brands fa-whatsapp"></i> 3D Chat</button>
+            </div>
+
+            <div class="tabs-container">
+                <button class="tab-btn active" id="btn-portrait"><i class="fa-solid fa-mobile-screen"></i> Portrait</button>
+                <button class="tab-btn" id="btn-square"><i class="fa-solid fa-square"></i> Kotak</button>
+                <button class="tab-btn" id="btn-landscape"><i class="fa-solid fa-display"></i> Landscape</button>
+            </div>
+
+            <div class="canvas-wrapper mode-portrait" id="canvas-wrapper">
+                <div id="render-area">
+                    <div class="quote-3d-wrapper" id="view-3d">
+                        <div id="quote-text-3d" class="fmt-normal"></div>
+                    </div>
+                    <div class="bubble-wrapper" id="view-bubble">
+                        <div class="chat-row" id="chat-animation-target">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2RmZTVlNyI+PHBhdGggZD0iTTI0IDI0SDBWMGgyNHYyNHoiLz48cGF0aCBmaWxsPSIjZmZmIiBkPSJNMTIgMTRjMi43NiAwIDUtMi4yNCA1LTVzLTIuMjQtNS01LTUtNSAyLjI0LTUgNSAyLjI0IDUgNSA1em0wIDJjLTMuMzMgMC0xMCAxLjY3LTEwIDV2M2gyMHYtM2MwLTMuMzMtNi42Ny01LTEwLTV6Ii8+PC9zdmc+" id="pp-preview" class="profile-pic" alt="PP">
+                            <div class="chat-bubble-container">
+                                <div class="chat-bubble fmt-normal" id="quote-text-bubble"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="watermark-text">by Hermawan</div>
+                </div>
+            </div>
+
+            <div id="bubble-controls">
+                <label class="custom-upload-btn">
+                    <input type="file" id="pp-upload" accept="image/*">
+                    <i class="fa-solid fa-camera"></i> Ganti Foto Profil
+                </label>
+                <div class="flex-row">
+                    <div class="custom-color-wrapper">
+                        <div class="color-indicator" id="bg-indicator" style="background: #ffffff;"></div>
+                        <span>Latar Chat</span>
+                        <input type="color" id="bg-color" value="#ffffff">
+                    </div>
+                    <div class="custom-color-wrapper">
+                        <div class="color-indicator" id="txt-indicator" style="background: #000000;"></div>
+                        <span>Teks Chat</span>
+                        <input type="color" id="txt-color" value="#000000">
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <textarea id="quote-input" placeholder="Tuliskan sesuatu di sini..."></textarea>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-generate" id="generate-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Generate 3D Quotes</button>
+                <button class="btn btn-download" id="download-btn"><i class="fa-solid fa-download"></i> Download HD</button>
+            </div>
+
+            <div class="music-player">
+                <div class="music-info">
+                    <button class="play-btn" id="play-btn-toggle"><i class="fa-solid fa-play" id="play-icon"></i></button>
+                    <div class="music-details">
+                        <span class="music-title">Lagu Latar</span>
+                        <span class="music-time" id="music-time-display">00:00 / 00:00</span>
+                    </div>
+                </div>
+                <div class="upload-music-btn" title="Ganti Lagu (Otomatis Tersimpan)">
+                    <i class="fa-solid fa-music"></i>
+                    <input type="file" id="music-upload" accept="audio/mp3, audio/mpeg">
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-credits">by Hermawan <br><span style="font-weight: 400; opacity: 0.6; margin-top: 2px;">non emoji</span></div>
+    </div>
+
+    <script>
+        // ================= SISTEM JAM MALAM (BLUE SCREEN) =================
+        function checkCurfew() {
+            const hour = new Date().getHours();
+            const blueScreen = document.getElementById('blue-screen');
+            const appContent = document.getElementById('app-content');
+            
+            // Jam 22.00 malam sampai jam 03.59 pagi
+            if (hour >= 22 || hour < 4) {
+                appContent.style.display = 'none';
+                blueScreen.style.display = 'flex';
+                document.body.style.background = '#0033a0';
+            } else {
+                appContent.style.display = 'flex';
+                blueScreen.style.display = 'none';
+                document.body.style.background = '';
+            }
+        }
+        checkCurfew();
+        setInterval(checkCurfew, 60000); 
+
+        // ================= DEKLARASI ELEMEN =================
+        const quoteInput = document.getElementById('quote-input');
+        const quote3D = document.getElementById('quote-text-3d');
+        const quoteBubble = document.getElementById('quote-text-bubble');
+        const view3D = document.getElementById('view-3d');
+        const viewBubble = document.getElementById('view-bubble');
+        const chatAnimTarget = document.getElementById('chat-animation-target');
+        const bubbleControls = document.getElementById('bubble-controls');
+        
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const renderArea = document.getElementById('render-area');
+        const generateBtn = document.getElementById('generate-btn');
+        const downloadBtn = document.getElementById('download-btn');
+        const customToast = document.getElementById('custom-toast');
+        const watermarkText = document.getElementById('watermark-text');
+
+        const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
+
+        let currentMode = '3d'; 
+        let currentOriWidth = 1080;
+        let currentOriHeight = 1920;
+
+        function updateScale() {
+            let baseWidth = 1080;
+            if(canvasWrapper.classList.contains('mode-landscape')) baseWidth = 1920;
+            const scale = canvasWrapper.clientWidth / baseWidth;
+            renderArea.style.transform = `scale(${scale})`;
+        }
+        window.addEventListener('resize', updateScale);
+        updateScale();
+
+        function showToast(message, isError = false) {
+            customToast.querySelector('span').innerText = message;
+            customToast.querySelector('i').className = isError ? "fa-solid fa-circle-xmark" : "fa-solid fa-circle-check";
+            customToast.querySelector('i').style.color = isError ? "#ef4444" : "#10b981";
+            customToast.classList.add('show');
+            setTimeout(() => customToast.classList.remove('show'), 3000);
+        }
+
+        // ================= TABS LOGIC =================
+        document.getElementById('btn-style-3d').addEventListener('click', function() {
+            this.classList.add('active'); document.getElementById('btn-style-bubble').classList.remove('active');
+            view3D.style.display = 'flex'; viewBubble.style.display = 'none'; bubbleControls.style.display = 'none'; currentMode = '3d';
+        });
+        document.getElementById('btn-style-bubble').addEventListener('click', function() {
+            this.classList.add('active'); document.getElementById('btn-style-3d').classList.remove('active');
+            view3D.style.display = 'none'; viewBubble.style.display = 'flex'; bubbleControls.style.display = 'flex'; currentMode = 'bubble';
+        });
+
+        function setOrientation(mode) {
+            canvasWrapper.className = `canvas-wrapper mode-${mode}`;
+            document.querySelectorAll('.orientation-tabs .tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${mode}`).classList.add('active');
+            if (mode === 'portrait') { currentOriWidth = 1080; currentOriHeight = 1920; }
+            else if (mode === 'square') { currentOriWidth = 1080; currentOriHeight = 1080; }
+            else { currentOriWidth = 1920; currentOriHeight = 1080; }
+            setTimeout(updateScale, 50); 
+        }
+        document.getElementById('btn-portrait').addEventListener('click', () => setOrientation('portrait'));
+        document.getElementById('btn-square').addEventListener('click', () => setOrientation('square'));
+        document.getElementById('btn-landscape').addEventListener('click', () => setOrientation('landscape'));
+
+        // ================= BUBBLE SETTINGS =================
+        document.getElementById('pp-upload').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file) {
+                const reader = new FileReader();
+                reader.onload = function(event) { document.getElementById('pp-preview').src = event.target.result; }
+                reader.readAsDataURL(file);
+            }
+        });
+        document.getElementById('bg-color').addEventListener('input', function(e) {
+            document.documentElement.style.setProperty('--bubble-bg', e.target.value); document.getElementById('bg-indicator').style.background = e.target.value;
+        });
+        document.getElementById('txt-color').addEventListener('input', function(e) {
+            document.documentElement.style.setProperty('--bubble-color', e.target.value); document.getElementById('txt-indicator').style.background = e.target.value;
+        });
+
+        // ================= FONT SIZE & PARSER AI =================
+        function calculateFontSize3D(textLength, mode) {
+            let base = (mode === 'landscape') ? 110 : (mode === 'square' ? 85 : 95);
+            if (textLength < 50) return base + 'px';
+            if (textLength < 100) return (base * 0.8) + 'px';
+            if (textLength < 200) return (base * 0.65) + 'px';
+            if (textLength < 350) return (base * 0.5) + 'px';
+            return (base * 0.35) + 'px';
+        }
+        function calculateFontSizeBubble(textLength, mode) {
+            let base = (mode === 'landscape') ? 60 : (mode === 'square' ? 45 : 55);
+            if (textLength < 80) return base + 'px';
+            if (textLength < 200) return (base * 0.85) + 'px';
+            if (textLength < 350) return (base * 0.7) + 'px';
+            return (base * 0.55) + 'px';
+        }
+
+        function parseFormatting(rawText) {
+            let text = rawText;
+            text = text.replace(emojiRegex, (match) => `<img src="https://emojicdn.elk.sh/${match}?style=apple" alt="${match}" class="ios-emoji">`);
+            text = text.replace(/\*([^\*]+)\*/g, '<span class="fmt-bold">$1</span>');
+            text = text.replace(/_([^_]+)_/g, '<span class="fmt-italic">$1</span>');
+            text = text.replace(/(#[a-zA-Z0-9_]+)/g, '<span class="fmt-thin">$1</span>');
+            text = text.replace(/\n/g, '<br>');
+            return text;
+        }
+
+        // ================= GENERATE & DOWNLOAD =================
+        generateBtn.addEventListener('click', () => {
+            let text = quoteInput.value;
+            quote3D.classList.remove('animate-pop'); chatAnimTarget.classList.remove('animate-pop');
+            void quote3D.offsetWidth; void chatAnimTarget.offsetWidth;
+
+            if (text.trim() === '') {
+                quote3D.style.display = 'none'; chatAnimTarget.style.opacity = '0'; return;
+            }
+
+            let formattedText = parseFormatting(text);
+            let currentOri = canvasWrapper.className.split('mode-')[1];
+
+            if (currentMode === '3d') {
+                quote3D.style.fontSize = calculateFontSize3D(text.length, currentOri);
+                quote3D.innerHTML = formattedText; quote3D.style.display = 'block'; quote3D.classList.add('animate-pop');
+            } else {
+                quoteBubble.style.fontSize = calculateFontSizeBubble(text.length, currentOri);
+                quoteBubble.innerHTML = formattedText; chatAnimTarget.classList.add('animate-pop'); chatAnimTarget.style.opacity = '1';
+            }
+            showToast('Quotes 3D Berhasil Digenerate!');
+        });
+
+        downloadBtn.addEventListener('click', async () => {
+            const originalHTML = downloadBtn.innerHTML;
+            downloadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses HD...';
+            downloadBtn.style.pointerEvents = "none"; downloadBtn.style.opacity = "0.7";
+
+            watermarkText.style.display = 'block';
+
+            try {
+                const dataUrl = await htmlToImage.toJpeg(renderArea, {
+                    quality: 0.95, width: currentOriWidth, height: currentOriHeight, pixelRatio: 1, 
+                    style: { transform: 'scale(1)', transformOrigin: 'top left' }
+                });
+                const link = document.createElement('a');
+                let modeName = canvasWrapper.className.includes('portrait') ? 'Portrait' : (canvasWrapper.className.includes('square') ? 'Square' : 'Landscape');
+                link.download = `Quotes_${modeName}_${currentMode}_${Date.now()}.jpg`;
+                link.href = dataUrl; link.click();
+                showToast('Gambar HD tersimpan ke Galeri!');
+            } catch (error) {
+                showToast('Gagal render gambar!', true);
+            }
+
+            watermarkText.style.display = 'none';
+            setTimeout(() => { downloadBtn.innerHTML = originalHTML; downloadBtn.style.pointerEvents = "auto"; downloadBtn.style.opacity = "1"; }, 2000);
+        });
+
+        // ================= MUSIC PLAYER & INDEXED-DB SYSTEM =================
+        const audioEl = document.getElementById('bg-audio');
+        const playBtnToggle = document.getElementById('play-btn-toggle');
+        const playIcon = document.getElementById('play-icon');
+        const timeDisplay = document.getElementById('music-time-display');
+        const musicUpload = document.getElementById('music-upload');
+
+        function formatTime(seconds) {
+            if(isNaN(seconds)) return "00:00";
+            const m = Math.floor(seconds / 60); const s = Math.floor(seconds % 60);
+            return `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+        }
+
+        audioEl.addEventListener('timeupdate', () => {
+            timeDisplay.innerText = `${formatTime(audioEl.currentTime)} / ${formatTime(audioEl.duration)}`;
+        });
+        audioEl.addEventListener('loadedmetadata', () => {
+            timeDisplay.innerText = `00:00 / ${formatTime(audioEl.duration)}`;
+        });
+
+        playBtnToggle.addEventListener('click', () => {
+            if (audioEl.paused) {
+                audioEl.play(); playIcon.className = "fa-solid fa-pause"; playBtnToggle.style.background = "#ef4444";
+            } else {
+                audioEl.pause(); playIcon.className = "fa-solid fa-play"; playBtnToggle.style.background = "var(--accent-green)";
+            }
+        });
+
+        const dbName = "AudioStorage";
+        let db;
+        const request = indexedDB.open(dbName, 1);
+        request.onupgradeneeded = (e) => {
+            db = e.target.result;
+            if(!db.objectStoreNames.contains('music')) db.createObjectStore('music');
+        };
+        request.onsuccess = (e) => {
+            db = e.target.result;
+            const tx = db.transaction('music', 'readonly');
+            const store = tx.objectStore('music');
+            const getReq = store.get('savedMp3');
+            getReq.onsuccess = (e) => {
+                if(e.target.result) {
+                    audioEl.src = e.target.result;
+                    document.querySelector('.music-title').innerText = "Lagu Kustom Anda";
+                }
+            }
+        };
+
+        musicUpload.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if(file && file.type.includes('audio')) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const base64Audio = event.target.result;
+                    audioEl.src = base64Audio;
+                    document.querySelector('.music-title').innerText = file.name.length > 15 ? file.name.substring(0, 15) + "..." : file.name;
+                    
+                    try {
+                        const tx = db.transaction('music', 'readwrite');
+                        const store = tx.objectStore('music');
+                        store.put(base64Audio, 'savedMp3');
+                        showToast("Lagu tersimpan permanen di browser!");
+                    } catch(err) { showToast("File diputar (Terlalu besar untuk disimpan)", true); }
+                    
+                    audioEl.play(); playIcon.className = "fa-solid fa-pause"; playBtnToggle.style.background = "#ef4444";
+                };
+                reader.readAsDataURL(file);
+            } else { showToast("Harus format Audio (.mp3)", true); }
+        });
+
+    </script>
+</body>
+</html>
